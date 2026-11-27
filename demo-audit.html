@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI DocOps Quality & Hallucination Auditor — Srijani Ghosh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-card: #111827;
+      --bg-elevated: #1e293b;
+      --border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #6366f1;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+      --danger-border: #ef4444;
+      --danger-text: #fca5a5;
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --success-border: #10b981;
+      --success-text: #6ee7b7;
+      --warn-bg: rgba(245, 158, 11, 0.15);
+      --warn-border: #f59e0b;
+      --warn-text: #fcd34d;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 64px;
+    }
+    .topbar {
+      background: rgba(17, 24, 39, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 14px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .badge-pill {
+      background: linear-gradient(135deg, var(--accent-indigo), #2563eb);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .topbar-metrics {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+    }
+    .metric-chip {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    .metric-chip span {
+      color: var(--accent-blue);
+      font-weight: 700;
+    }
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 36px 24px;
+    }
+    .hero {
+      text-align: left;
+      margin-bottom: 32px;
+      padding: 28px 32px;
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.95));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.02rem;
+      max-width: 960px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .kpi-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .kpi-value {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--accent-blue);
+      line-height: 1.2;
+    }
+    .kpi-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 32px;
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prompt-box {
+      background: #060911;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.84rem;
+      color: #cbd5e1;
+      overflow-x: auto;
+      line-height: 1.65;
+    }
+    .prompt-keyword {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+    .prompt-rule {
+      color: #f472b6;
+      font-weight: 600;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      background: var(--bg-elevated);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--accent-indigo);
+      border-color: #818cf8;
+      color: #ffffff;
+    }
+    .diff-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .diff-column {
+      background: #0b101b;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .diff-column.before {
+      border-top: 4px solid var(--danger-border);
+    }
+    .diff-column.after {
+      border-top: 4px solid var(--success-border);
+    }
+    .diff-col-header {
+      padding: 16px 20px;
+      background: rgba(30, 41, 59, 0.5);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .diff-col-title {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .status-tag {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .status-tag.fail {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
+    }
+    .status-tag.pass {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+    .diff-body {
+      padding: 20px;
+      font-size: 0.9rem;
+    }
+    .audit-block {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      transition: transform 0.15s ease;
+    }
+    .audit-block.flaw {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.45);
+    }
+    .audit-block.fixed {
+      background: var(--success-bg);
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+    .audit-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.04em;
+    }
+    .audit-tag.flaw-tag {
+      background: #991b1b;
+      color: #fecaca;
+    }
+    .audit-tag.fix-tag {
+      background: #065f46;
+      color: #a7f3d0;
+    }
+    pre.code-snippet {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: #05080f;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-top: 8px;
+      color: #e2e8f0;
+    }
+    .annotation {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .ledger-table th, .ledger-table td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .ledger-table th {
+      background: var(--bg-elevated);
+      color: #e2e8f0;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    .sev-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .sev-critical {
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid var(--danger-border);
+    }
+    .sev-style {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      border: 1px solid var(--warn-border);
+    }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82em;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="topbar">
+    <div class="topbar-brand">
+      <span class="badge-pill">AI DocOps Showcase</span>
+      <span>Srijani Ghosh — Senior Technical Writer (JumpCloud Application Package)</span>
+    </div>
+    <div class="topbar-metrics">
+      <div class="metric-chip">Review Cycle Reduction: <span>-30%</span></div>
+      <div class="metric-chip">Support Query Deflection: <span>-50%</span></div>
+      <div class="metric-chip">Schema Parity: <span>100% (Draft 2020-12)</span></div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero">
+      <h1>AI Quality &amp; Hallucination Auditing Pipeline</h1>
+      <p>
+        Interactive process-improvement walkthrough demonstrating how standardized prompt templates (<code>prompts/style-and-hallucination-auditor.md</code>) and JSON Schema Draft 2020-12 contracts eliminate hallucinated API parameters, wildcard RBAC anti-patterns, and editorial drift before pull-request review.
+      </p>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-value">30% Faster</div>
+          <div class="kpi-label">Reduction in manual editorial &amp; SME review cycles per release</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">5 Defects Caught</div>
+          <div class="kpi-label">3 hallucinated fields, 1 critical RBAC security risk, 1 style violation</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">Zero Drift</div>
+          <div class="kpi-label">100% alignment with <code>agent-identity.schema.json</code></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">RAG-Ready</div>
+          <div class="kpi-label">Deterministic H2 semantic chunks &amp; schema tables for vector search</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card" id="prompt-template-section">
+      <div class="section-header">
+        <div class="section-title">
+          <span>1. Standardized Auditor Prompt Template (<code>prompts/style-and-hallucination-auditor.md</code>)</span>
+        </div>
+        <span class="badge-pill">Reusable DocOps Asset</span>
+      </div>
+      <div class="prompt-box">
+<span class="prompt-keyword">### ROLE &amp; AUDIT MANDATE</span>
+You are a Principal Technical Editor and DevSecOps Documentation Auditor. Perform a line-by-line forensic audit of
+<span class="prompt-rule">CANDIDATE_DRAFT</span> against <span class="prompt-rule">GROUND_TRUTH_SCHEMA</span> (<code>static/schemas/agent-identity.schema.json</code>) and our enterprise style rules:
+
+<span class="prompt-keyword">1. HALLUCINATION DETECTION (CRITICAL):</span>
+   - Flag any JSON property, CLI flag, header, or enum value not present in <code>agent-identity.schema.json</code>.
+   - Verify numeric bounds: <code>token_ttl_seconds</code> MUST be an integer between <code>300</code> and <code>3600</code>.
+
+<span class="prompt-keyword">2. SECURITY &amp; IAM GUARDRAIL AUDIT (CRITICAL):</span>
+   - Reject any code sample granting wildcard RBAC policies (<code>*:*</code> or <code>role:super-admin</code>).
+   - Enforce mandatory human sponsor MFA attestation (<code>sponsor_identity_id</code> pattern <code>^usr_[a-zA-Z0-9]{12,24}$</code>).
+   - Require a <code>:::danger</code> secret-storage admonition for one-time <code>bootstrap_client_secret</code> responses.
+
+<span class="prompt-keyword">3. EDITORIAL &amp; RAG CHUNKING COMPLIANCE:</span>
+   - Replace passive prose with active imperative instructions and deterministic Markdown schema tables.
+      </div>
+    </section>
+
+    <section class="section-card" id="side-by-side-audit">
+      <div class="section-header">
+        <div class="section-title">
+          <span>2. Side-by-Side Comparison: Raw AI Draft vs. Audited Production Output</span>
+        </div>
+        <div class="filter-bar" style="margin-bottom: 0;">
+          <button class="filter-btn active" onclick="highlightCategory('all', this)">All 5 Audit Fixes</button>
+          <button class="filter-btn" onclick="highlightCategory('hallucination', this)">Hallucinated Parameters (3)</button>
+          <button class="filter-btn" onclick="highlightCategory('security', this)">Security &amp; RBAC Risks (1)</button>
+          <button class="filter-btn" onclick="highlightCategory('style', this)">Style &amp; RAG Structure (1)</button>
+        </div>
+      </div>
+
+      <div class="diff-grid">
+        <!-- LEFT COLUMN: FLAWED AI DRAFT -->
+        <div class="diff-column before">
+          <div class="diff-col-header">
+            <span class="diff-col-title">BEFORE: Unaudited Raw AI Draft</span>
+            <span class="status-tag fail">CI Blocked • 5 Critical Defects</span>
+          </div>
+          <div class="diff-body">
+
+            <div class="audit-block flaw" data-category="style">
+              <span class="audit-tag flaw-tag">Defect #1 • Style &amp; RAG Chunking Drift</span>
+              <div><strong>Heading:</strong> <code>## Overview and Stuff to Know</code></div>
+              <p style="margin-top:6px;">
+                "An agent identity can be created by calling the endpoint. Usually the token is set up automatically by the system and permissions are given to it so it can run tools."
+              </p>
+              <div class="annotation">
+                <strong>Why it fails:</strong> Vague heading breaks RAG semantic retrieval; passive voice and ambiguous pronouns (<em>"it"</em>) obscure required OAuth scope (<code>iam:agents:write</code>).
+              </div>
+            </div>
+
+            <div class="audit-block flaw" data-category="hallucination">
+              <span class="audit-tag flaw-tag">Defect #2 • Hallucinated Endpoint &amp; Bypass Flag</span>
+              <pre class="code-snippet">POST https://api.aegisiam.dev/v1/ai/create-bot?skip_mfa=true
+Authorization: Basic YWRtaW46cGFzc3dvcmQ=</pre>
+              <div class="annotation">
+                <strong>Why it fails:</strong> Invented route <code>/v1/ai/create-bot</code> and hallucinated query parameter <code>?skip_mfa=true</code>. Uses deprecated HTTP Basic Auth instead of Bearer API token.
+              </div>
+            </div>
+
+            <div class="audit-block flaw" data-category="hallucination">
+              <span class="audit-tag flaw-tag">Defect #3 • Hallucinated Schema Fields &amp; Out-of-Bounds TTL</span>
+              <pre class="code-snippet">{
+  "agent_name": "SecOps_Bot_01!",
+  "auto_approve_admin": true,
+  "bypass_sponsor_check": true,
+  "token_ttl_seconds": 86400
+}</pre>
+              <div class="annotation">
+                <strong>Why it fails:</strong> <code>auto_approve_admin</code> and <code>bypass_sponsor_check</code> do not exist in <code>agent-identity.schema.json</code> (<code>additionalProperties: false</code>). <code>token_ttl_seconds: 86400</code> violates the <code>3600</code> max constraint.
+              </div>
+            </div>
+
+            <div class="audit-block flaw" data-category="security">
+              <span class="audit-tag flaw-tag">Defect #4 • Wildcard Super-Admin RBAC Anti-Pattern</span>
+              <pre class="code-snippet">"rbac_policies": [
+  "urn:aegis:policy:*",
+  "role:org-super-admin"
+]</pre>
+              <div class="annotation">
+                <strong>Why it fails:</strong> Recommends wildcard permissions that trigger <code>403 Forbidden (ERR_WILDCARD_POLICY_DENIED)</code> and violate least-privilege agent security guardrails.
+              </div>
+            </div>
+
+            <div class="audit-block flaw" data-category="hallucination">
+              <span class="audit-tag flaw-tag">Defect #5 • Omitted Required Human Sponsor Attestation</span>
+              <p>
+                Omits required fields <code>sponsor_identity_id</code>, <code>environment</code>, and <code>orchestrator_type</code>, causing every developer copy-paste attempt to fail with <code>400 Bad Request</code>.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: AUDITED OUTPUT -->
+        <div class="diff-column after">
+          <div class="diff-col-header">
+            <span class="diff-col-title">AFTER: Audited &amp; Schema-Verified Output</span>
+            <span class="status-tag pass">CI Passing • 100% Schema Parity</span>
+          </div>
+          <div class="diff-body">
+
+            <div class="audit-block fixed" data-category="style">
+              <span class="audit-tag fix-tag">Fix #1 • Explicit RAG Heading &amp; Active Imperative Prose</span>
+              <div><strong>Heading:</strong> <code>## 1. Endpoint Overview &amp; Operational Context</code></div>
+              <p style="margin-top:6px;">
+                "Provision a cryptographically verifiable identity for an autonomous AI agent via <code>POST /v1/agents/identities</code> using a Bearer token with <code>iam:agents:write</code> scope."
+              </p>
+              <div class="annotation">
+                <strong>Audit Verification:</strong> Embeds exact endpoint path, HTTP verb, and required OAuth scope directly in the top-level RAG chunk.
+              </div>
+            </div>
+
+            <div class="audit-block fixed" data-category="hallucination">
+              <span class="audit-tag fix-tag">Fix #2 • Verified Route &amp; Enterprise Headers</span>
+              <pre class="code-snippet">POST https://api.aegisiam.dev/v1/agents/identities
+Authorization: Bearer aeg_live_98f72b1c4d3e5a6f7b8c9d0e1f2a3b4c
+X-Aegis-Tenant-ID: tnt_01J9X7K2M8P4Q6R9
+Idempotency-Key: 7c9e6679-7425-40de-944b-e07fc1f90ae7</pre>
+              <div class="annotation">
+                <strong>Audit Verification:</strong> Matches production route and enforces tenant isolation + UUIDv4 idempotency headers.
+              </div>
+            </div>
+
+            <div class="audit-block fixed" data-category="hallucination">
+              <span class="audit-tag fix-tag">Fix #3 • Strict Draft 2020-12 Schema Compliance</span>
+              <pre class="code-snippet">{
+  "agent_name": "secops-triage-orchestrator-prod",
+  "environment": "production",
+  "orchestrator_type": "langgraph",
+  "sponsor_identity_id": "usr_01H8Z4W9X2K7M3N5P8",
+  "token_ttl_seconds": 900
+}</pre>
+              <div class="annotation">
+                <strong>Audit Verification:</strong> All hallucinated properties stripped. <code>agent_name</code> satisfies <code>^[a-z0-9-]{3,64}$</code> and <code>token_ttl_seconds: 900</code> is within <code>300..3600</code>.
+              </div>
+            </div>
+
+            <div class="audit-block fixed" data-category="security">
+              <span class="audit-tag fix-tag">Fix #4 • Least-Privilege Scoped RBAC &amp; Security Admonition</span>
+              <pre class="code-snippet">"rbac_policies": [
+  "urn:aegis:policy:directory-audit-reader",
+  "urn:aegis:policy:scim-queue-inspector"
+]</pre>
+              <div class="annotation">
+                <strong>Audit Verification:</strong> Enforces regex <code>^urn:aegis:policy:[a-z0-9-]{3,64}$</code> and pairs with a <code>:::warning</code> admonition blocking wildcard roles.
+              </div>
+            </div>
+
+            <div class="audit-block fixed" data-category="hallucination">
+              <span class="audit-tag fix-tag">Fix #5 • Complete Error Triage Table (400 / 401 / 403 / 409 / 422 / 429)</span>
+              <p>
+                Documents deterministic remediation steps for <code>422 ERR_SPONSOR_MFA_REQUIRED</code> and one-time <code>bootstrap_client_secret</code> vault storage.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card" id="forensic-defect-ledger">
+      <div class="section-header">
+        <div class="section-title">
+          <span>3. Automated Forensic Audit Ledger (Generated by Prompt Template)</span>
+        </div>
+        <span class="badge-pill">Zero Hallucinations Shipped</span>
+      </div>
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>Defect ID</th>
+            <th>Severity</th>
+            <th>Category</th>
+            <th>Hallucinated / Flawed Input</th>
+            <th>Ground-Truth Schema &amp; Style Remediation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>AUD-01</code></td>
+            <td><span class="sev-badge sev-critical">CRITICAL</span></td>
+            <td>Hallucinated Route &amp; Param</td>
+            <td><code>POST /v1/ai/create-bot?skip_mfa=true</code></td>
+            <td>Replaced with <code>POST /v1/agents/identities</code>; removed non-existent <code>skip_mfa</code> query param.</td>
+          </tr>
+          <tr>
+            <td><code>AUD-02</code></td>
+            <td><span class="sev-badge sev-critical">CRITICAL</span></td>
+            <td>Hallucinated JSON Properties</td>
+            <td><code>"auto_approve_admin": true</code>, <code>"bypass_sponsor_check": true</code></td>
+            <td>Purged both invented properties (blocked by <code>additionalProperties: false</code> in JSON Schema).</td>
+          </tr>
+          <tr>
+            <td><code>AUD-03</code></td>
+            <td><span class="sev-badge sev-critical">CRITICAL</span></td>
+            <td>Constraint Violation</td>
+            <td><code>"token_ttl_seconds": 86400</code> (24 hours)</td>
+            <td>Constrained to <code>900</code> seconds (schema bounds: <code>minimum: 300, maximum: 3600</code>).</td>
+          </tr>
+          <tr>
+            <td><code>AUD-04</code></td>
+            <td><span class="sev-badge sev-critical">CRITICAL</span></td>
+            <td>Security Anti-Pattern</td>
+            <td><code>"urn:aegis:policy:*"</code>, <code>"role:org-super-admin"</code></td>
+            <td>Replaced with least-privilege URNs and added mandatory human MFA sponsor warning callout.</td>
+          </tr>
+          <tr>
+            <td><code>AUD-05</code></td>
+            <td><span class="sev-badge sev-style">STYLE / RAG</span></td>
+            <td>Passive Voice &amp; Heading Drift</td>
+            <td><code>## Overview and Stuff to Know</code></td>
+            <td>Restructured into 6 self-contained H2 RAG chunks with explicit parameter &amp; error triage tables.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    function highlightCategory(category, btnElement) {
+      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+      if (btnElement) btnElement.classList.add('active');
+
+      document.querySelectorAll('.audit-block').forEach(block => {
+        if (category === 'all' || block.getAttribute('data-category') === category) {
+          block.style.opacity = '1';
+          block.style.transform = 'scale(1)';
+        } else {
+          block.style.opacity = '0.28';
+          block.style.transform = 'scale(0.98)';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
