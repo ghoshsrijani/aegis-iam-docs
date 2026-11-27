@@ -1,0 +1,43 @@
+name: Docs-as-Code CI (Schema & Link Validation)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-and-build:
+    name: Validate JSON Schemas & Build Docusaurus
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Draft 2020-12 JSON Schemas
+        run: |
+          node -e '
+            const fs = require("fs");
+            const schemaPath = "static/schemas/agent-identity.schema.json";
+            const raw = fs.readFileSync(schemaPath, "utf8");
+            const schema = JSON.parse(raw);
+            if (schema.$schema !== "https://json-schema.org/draft/2020-12/schema") {
+              throw new Error("Invalid $schema declaration in " + schemaPath);
+            }
+            if (!Array.isArray(schema.required) || schema.required.length === 0) {
+              throw new Error("Missing required array in " + schemaPath);
+            }
+            console.log("Verified JSON Schema Draft 2020-12:", schema.$id);
+          '
+
+      - name: Build Docusaurus Site (Strict Broken-Link Check)
+        run: npm run build

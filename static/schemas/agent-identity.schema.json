@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docs.aegisiam.dev/schemas/agent-identity.schema.json",
+  "title": "AegisIAM Autonomous Agent Identity Provisioning Request",
+  "description": "JSON Schema (Draft 2020-12) validating POST /v1/agents/identities request payloads for autonomous AI agent identity and RBAC provisioning.",
+  "type": "object",
+  "required": [
+    "agent_name",
+    "environment",
+    "orchestrator_type",
+    "sponsor_identity_id",
+    "rbac_policies",
+    "token_ttl_seconds"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "agent_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{3,64}$",
+      "description": "Unique lowercase alphanumeric slug identifying the autonomous agent within the tenant."
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["production", "staging", "development"],
+      "description": "Target deployment environment tier."
+    },
+    "orchestrator_type": {
+      "type": "string",
+      "enum": ["langchain", "langgraph", "mcp-server", "custom-agent"],
+      "description": "Underlying AI agent orchestration framework or runtime."
+    },
+    "sponsor_identity_id": {
+      "type": "string",
+      "pattern": "^usr_[a-zA-Z0-9]{12,24}$",
+      "description": "Immutable directory ID of the MFA-verified human sponsor accountable for the agent."
+    },
+    "rbac_policies": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^urn:aegis:policy:[a-z0-9-]{3,64}$"
+      },
+      "description": "Explicit least-privilege RBAC policy URNs bound to the agent identity."
+    },
+    "allowed_mcp_tools": {
+      "type": "array",
+      "maxItems": 50,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9._-]{3,128}$"
+      },
+      "description": "Optional allowlist of Model Context Protocol (MCP) tool identifiers."
+    },
+    "token_ttl_seconds": {
+      "type": "integer",
+      "minimum": 300,
+      "maximum": 3600,
+      "description": "Ephemeral OAuth 2.0 workload access token lifetime in seconds (5 to 60 minutes)."
+    },
+    "mtls_fingerprint_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Optional SHA-256 hex fingerprint binding the agent token to a client mTLS certificate."
+    },
+    "audit_webhook_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "Optional HTTPS webhook endpoint for real-time token exchange and invocation telemetry."
+    }
+  }
+}
